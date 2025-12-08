@@ -53,7 +53,7 @@ The script in this repository does not modify the original TTMediaBot project; i
 ### Clone the repository
 
 ```bash
-git clone https://github.com/<your-username>/ttmediabot-docker-helper.git
+git clone https://github.com/MuhammadGagah/ttmediabot-docker-helper.git
 cd ttmediabot-docker-helper
 ```
 
