@@ -242,6 +242,10 @@ limit_bot() {
     LIMITS+="--cpus=${CPU_LIMIT} "
   fi
   if [[ -n "$MEM_LIMIT" ]]; then
+    # If the user entered only numbers (e.g. 512), append 'm' (e.g. 512m).
+    if [[ "$MEM_LIMIT" =~ ^[0-9]+$ ]]; then
+      MEM_LIMIT="${MEM_LIMIT}m"
+    fi
     LIMITS+="--memory=${MEM_LIMIT} "
   fi
 
