@@ -35,6 +35,8 @@ The script in this repository does not modify the original TTMediaBot project; i
   * `new`, `run`, `stop`, `logs`, `ls`, `pull`, `ps`
 * Supports version-based image selection via `TTMB_TAG`.
 * Automatically applies correct file ownership for runtime safety.
+* Support for resource limiting (CPU/Memory).
+
 
 ---
 
@@ -152,6 +154,23 @@ Stops and removes the container but keeps your folder and config.
 
 ---
 
+## Limiting Resources via Docker
+
+You can limit the CPU and Memory usage for a bot using the `limit` command.
+
+```bash
+sudo ./tthelper.sh limit my_bot
+```
+
+You will be prompted to enter:
+* **CPU Limit**: e.g., `0.5` (half a core) or empty to unset
+* **Memory Limit**: e.g., `512m` (512 MB) or empty to unset
+
+This creates a `limit.txt` file in the bot folder containing the Docker flags. The script automatically applies these limits whenever you run the bot.
+
+---
+
+
 ## Listing Bot Folders
 
 ```bash
@@ -213,6 +232,8 @@ This allows testing new versions without affecting existing setups.
 ./tthelper.sh ls               List bot folders
 ./tthelper.sh pull             Pull or verify the TTMediaBot image
 ./tthelper.sh ps               List containers using the image
+./tthelper.sh limit <folder>   Set resource limits (CPU/Memory)
+
 
 Environment:
 TTMB_TAG                       Override image tag (default: latest)

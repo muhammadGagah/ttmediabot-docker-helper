@@ -1,5 +1,5 @@
 #!/bin/bash
-set -euo pipefail
+set -eu
 
 export DOCKER_BUILDKIT=1
 IMAGE_REPO="mgagah21/ttmediabot"
@@ -194,6 +194,12 @@ run_bot_from_dir() {
   local NAME
   NAME="$(basename "$DIR")"
 
+  local DOCKER_LIMITS=""
+  if [[ -f "$BOT_DIR/limit.txt" ]]; then
+    DOCKER_LIMITS=$(cat "$BOT_DIR/limit.txt")
+    echo "Applying resource limits: $DOCKER_LIMITS"
+  fi
+
   docker run --rm --network host -v "${BOT_DIR}:/home/ttbot/data" --user root "$IMAGE_NAME" \
     chown -R ttbot:ttbot /home/ttbot/data
 
@@ -201,6 +207,7 @@ run_bot_from_dir() {
     --name "$NAME" \
     --network host \
     --restart unless-stopped \
+    ${DOCKER_LIMITS} \
     -v "${BOT_DIR}:/home/ttbot/data" \
     "$IMAGE_NAME"
 
@@ -218,6 +225,40 @@ logs_bot() {
   local NAME="$1"
   if [[ -z "$NAME" ]]; then echo "Usage: $0 logs <container_name>"; exit 1; fi
   docker logs -f "$NAME"
+}
+
+limit_bot() {
+  local NAME="$1"
+  if [[ -z "$NAME" ]]; then echo "Usage: $0 limit <folder_name>"; exit 1; fi
+  local BOT_DIR="./${NAME}"
+  if [[ ! -d "$BOT_DIR" ]]; then echo "Folder '$BOT_DIR' not found."; exit 1; fi
+
+  local CPU_LIMIT MEM_LIMIT
+  read -rp "Enter CPU limit (e.g., 0.5 for half core, or empty to unset): " CPU_LIMIT
+  read -rp "Enter Memory limit (e.g., 512m, 1g, or empty to unset): " MEM_LIMIT
+
+  local LIMITS=""
+  if [[ -n "$CPU_LIMIT" ]]; then
+    LIMITS+="--cpus=${CPU_LIMIT} "
+  fi
+  if [[ -n "$MEM_LIMIT" ]]; then
+    LIMITS+="--memory=${MEM_LIMIT} "
+  fi
+
+  # Trim trailing space
+  LIMITS=$(echo "$LIMITS" | xargs)
+
+  if [[ -n "$LIMITS" ]]; then
+    echo "$LIMITS" > "$BOT_DIR/limit.txt"
+    echo "Limits saved to $BOT_DIR/limit.txt: $LIMITS"
+  else
+    if [[ -f "$BOT_DIR/limit.txt" ]]; then
+      rm "$BOT_DIR/limit.txt"
+      echo "Limits cleared (limit.txt removed)."
+    else
+      echo "No limits specified and no existing limit file to remove."
+    fi
+  fi
 }
 
 list_bot_dirs() {
@@ -260,6 +301,10 @@ case "${CMD}" in
   ps)
     list_bot_containers
     ;;
+  limit)
+    shift || true
+    limit_bot "${1:-}"
+    ;;
   *)
     cat <<USAGE
 Usage:
@@ -269,7 +314,9 @@ Usage:
   $0 logs <name>      Tail logs from container
   $0 ls               List bot folders adjacent to this script
   $0 pull             Pull or verify Docker image ($IMAGE_NAME)
+  $0 pull             Pull or verify Docker image ($IMAGE_NAME)
   $0 ps               List containers using image $IMAGE_NAME
+  $0 limit <folder>   Set resource limits (CPU/Memory) for a bot folder
 
 Env:
   TTMB_TAG            Override image tag (default: $IMAGE_TAG)
