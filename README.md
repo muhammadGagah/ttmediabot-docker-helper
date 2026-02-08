@@ -10,277 +10,128 @@ The script automatically pulls the prebuilt TTMediaBot image from Docker Hub, cr
 TTMediaBot is an audio playback bot developed for **TeamTalk**, a VoIP and conferencing system commonly used for voice chat, streaming, and accessible communication.
 
 Key features of TTMediaBot include:
-
-* Playing audio from YouTube, local files, streaming URLs, and other services.
-* Controlling playback using TeamTalk chat commands.
-* Supporting playlists, seeking, volume control, and fading.
-* Integrating with multiple streaming providers such as Yandex, VK, and YouTube.
-* Extensible Python-based architecture.
+*   Playing audio from YouTube, local files, streaming URLs, and other services.
+*   Controlling playback using TeamTalk chat commands.
+*   Supporting playlists, seeking, volume control, and fading.
+*   Extensible Python-based architecture.
 
 TTMediaBot is created and maintained by **gumerov-amir**, and the original repository can be found here:
 [https://github.com/gumerov-amir/TTMediaBot](https://github.com/gumerov-amir/TTMediaBot)
 
-The script in this repository does not modify the original TTMediaBot project; it simply provides an automated and user-friendly Docker-based runtime environment.
+The script in this repository does not modify the original TTMediaBot project, it simply provides an automated and user-friendly Docker-based runtime environment.
 
 ---
 
 ## Features
 
-* No manual image build required.
-* Automatically installs Docker (Debian/Ubuntu) if missing.
-* Automatically pulls the TTMediaBot image from Docker Hub.
-* Supports multiple bot instances, each with separate configuration.
-* Simple commands:
-
-  * `new`, `run`, `stop`, `logs`, `ls`, `pull`, `ps`
-* Supports version-based image selection via `TTMB_TAG`.
-* Automatically applies correct file ownership for runtime safety.
-* Support for resource limiting (CPU/Memory).
-
-
----
-
-## Requirements
-
-* Linux environment (tested on Debian and Ubuntu).
-* Root or sudo access.
-* systemd (used for controlling Docker service).
-* Internet connection to pull the Docker image.
-* Docker installed (or allow script to install it automatically).
+*   **No manual image build required**: Automatically pulls the prebuilt image.
+*   **Easy Setup**: Installs Docker (Debian/Ubuntu) if missing.
+*   **Multi-Bot Support**: Run multiple bots with separate configurations and cookies.
+*   **Resource Control**: Limit CPU and Memory usage per bot.
+*   **Simple Commands**: Intuitive commands to create, run, and manage bots.
 
 ---
 
 ## Installation
 
-### Clone the repository
+1.  **Clone the repository**:
+    ```bash
+    git clone https://github.com/MuhammadGagah/ttmediabot-docker-helper.git
+    cd ttmediabot-docker-helper
+    ```
 
-```bash
-git clone https://github.com/MuhammadGagah/ttmediabot-docker-helper.git
-cd ttmediabot-docker-helper
-```
-
-### Make the script executable
-
-```bash
-chmod +x tthelper.sh
-```
+2.  **Make the script executable**:
+    ```bash
+    chmod +x tthelper.sh
+    ```
 
 ---
 
-## Quick Start
+## User Guide
 
-### Pull the Docker image (optional)
-
-```bash
-sudo ./tthelper.sh pull
-```
-
-This step is optional.
-If the image does not exist locally, it will be pulled automatically when running a bot.
-
-Default image:
-
-```
-mgagah21/ttmediabot:latest
-```
-
----
-
-## Creating a New Bot Instance
+### 1. Create a New Bot
+Use the `new` command to create a config folder.
 
 ```bash
 sudo ./tthelper.sh new
 ```
+*   You will be asked for bot details (nickname, server, ports, etc.).
+*   Paste your cookies when prompted.
+*   **Safe Creation**: The folder and config files are only created *after* you finish entering all information.
 
-You will be asked for:
-
-* Bot folder name (also the container name)
-* Nickname
-* Gender
-* TeamTalk hostname
-* TCP/UDP ports
-* Username and password (optional)
-* Channel and password
-
-After completion, a folder will be created:
-
-```
-my_bot/
-  config.json
-  cookies.txt
-```
-
-Paste your cookies when prompted and press Ctrl+D.
-
----
-
-## Running a Bot
+### 2. Run a Bot
+Use the `run` command to start a bot using an **existing configuration folder**.
 
 ```bash
-sudo ./tthelper.sh run my_bot
+sudo ./tthelper.sh run <folder_name>
 ```
+*   **Example**: `sudo ./tthelper.sh run my_bot`
+*   **Function**:
+    *   Finds the folder (e.g., `my_bot`) in the current directory.
+    *   Creates and starts a Docker container with the same name.
+    *   Mounts the folder so the bot uses your `config.json` and `cookies.txt`.
 
-The script will:
+### 3. Manage Bots
+*   **Stop a bot**:
+    ```bash
+    sudo ./tthelper.sh stop <container_name>
+    ```
+    Stops and removes the container. Your config and data folder remain safe.
 
-* Ensure Docker is running
-* Ensure the image exists (auto-pull if needed)
-* Fix internal folder permissions
-* Start the bot container with:
+*   **View logs**:
+    ```bash
+    sudo ./tthelper.sh logs <container_name>
+    ```
+    Press `Ctrl+C` to exit.
 
-  * host networking
-  * volume mount: `./my_bot:/home/ttbot/data`
+*   **List all bot folders**:
+    ```bash
+    sudo ./tthelper.sh ls
+    ```
 
-The container continues running in the background.
+*   **List running containers**:
+    ```bash
+    sudo ./tthelper.sh ps
+    ```
 
----
+### 4. Manage Cookies
+Update `cookies.txt` easily without manually editing files.
 
-## Viewing Logs
+*   **Update one bot**:
+    ```bash
+    sudo ./tthelper.sh cks <folder_name>
+    ```
+    Paste new cookies and press `Ctrl+D`.
 
-```bash
-sudo ./tthelper.sh logs my_bot
-```
+*   **Update ALL bots**:
+    ```bash
+    sudo ./tthelper.sh cks-all
+    ```
+    Updates cookies for **every** bot folder associated with the image.
 
-Press Ctrl+C to exit log monitoring.
+### 5. Updates & Maintenance
+*   **Update Bot Dependencies**:
+    ```bash
+    sudo ./tthelper.sh update
+    ```
+    Updates `pip` requirements in **all running bots** and restarts them.
 
----
+*   **Limit Resources** (CPU/RAM):
+    ```bash
+    sudo ./tthelper.sh limit <folder_name>
+    ```
+    Sets limits (e.g., `0.5` CPU, `512m` RAM). Applied automatically on the next `run`.
 
-## Stopping a Bot
-
-```bash
-sudo ./tthelper.sh stop my_bot
-```
-
-Stops and removes the container but keeps your folder and config.
-
----
-
-## Limiting Resources via Docker
-
-You can limit the CPU and Memory usage for a bot using the `limit` command.
-
-```bash
-sudo ./tthelper.sh limit my_bot
-```
-
-You will be prompted to enter:
-* **CPU Limit**: e.g., `0.5` (half a core) or empty to unset
-* **Memory Limit**: e.g., `512m` (512 MB) or empty to unset
-
-This creates a `limit.txt` file in the bot folder containing the Docker flags. The script automatically applies these limits whenever you run the bot.
-
----
-
-
-## Listing Bot Folders
-
-```bash
-sudo ./tthelper.sh ls
-```
-
-Example output:
-
-```
-Bot folders next to this script:
-my_bot
-music_test
-another_bot
-```
-
----
-
-## Listing Containers Using The Image
-
-```bash
-sudo ./tthelper.sh ps
-```
-
----
-
-## Using Specific Image Versions
-
-Default tag:
-
-```
-latest
-```
-
-Override using `TTMB_TAG`:
-
-### Running version v19.0
-
-```bash
-sudo TTMB_TAG=v19.0 ./tthelper.sh run my_bot
-```
-
-### Pulling version v19.0
-
-```bash
-sudo TTMB_TAG=v19.0 ./tthelper.sh pull
-```
-
-This allows testing new versions without affecting existing setups.
-
----
-
-## Command Summary
-
-```
-./tthelper.sh new              Create a new bot folder
-./tthelper.sh run <folder>     Run a bot container
-./tthelper.sh stop <name>      Stop and remove a bot container
-./tthelper.sh logs <name>      Show logs of a bot
-./tthelper.sh ls               List bot folders
-./tthelper.sh pull             Pull or verify the TTMediaBot image
-./tthelper.sh ps               List containers using the image
-./tthelper.sh limit <folder>   Set resource limits (CPU/Memory)
-
-
-Environment:
-TTMB_TAG                       Override image tag (default: latest)
-```
-
----
-
-## Recommended Repository Structure
-
-```
-ttmediabot-docker-helper/
-  tthelper.sh
-  README.md
-  LICENSE
-  my_bot/
-    config.json
-    cookies.txt
-  another_bot/
-    config.json
-    cookies.txt
-```
+*   **Update Docker Image**:
+    ```bash
+    sudo ./tthelper.sh pull
+    ```
+    Downloads the latest version of `mgagah21/ttmediabot`.
 
 ---
 
 ## Contributing
-
-Contributions of any kind are welcome.
-
-### Create an Issue
-
-Use the GitHub Issues tab to:
-
-* Report bugs
-* Suggest improvements
-* Request new features
-* Ask questions
-
-### Submit a Pull Request
-
-1. Fork this repository
-2. Create a new branch
-3. Make your changes
-4. Push to your fork
-5. Open a Pull Request with a clear description
-
----
+Contributions are welcome! Please open an issue or pull request on [GitHub](https://github.com/MuhammadGagah/ttmediabot-docker-helper).
 
 ## License
-
 This project is licensed under the MIT License.
