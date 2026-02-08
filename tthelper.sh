@@ -78,7 +78,7 @@ create_bot_dir() {
   if [[ -d "$BOT_DIR" ]]; then
     echo "Error: directory '$BOT_DIR' already exists."; exit 1
   fi
-  mkdir -p "$BOT_DIR"
+  # Defer mkdir until after inputs
 
   read -rp "Nickname (e.g. TTMediaBot): " NICKNAME
   read -rp "Gender (m/f/n): " GENDER
@@ -90,9 +90,17 @@ create_bot_dir() {
   read -rp "Channel (default: /): " CHANNEL; CHANNEL=${CHANNEL:-/}
   read -rp "Channel password (optional): " CHANNEL_PASSWORD
 
-cat > "$BOT_DIR/config.json" <<EOL
+  echo "Paste your cookies below (Press CTRL+D to save):"
+  # Capture cookies into a variable first to ensure we don't create files if user aborts
+  local COOKIES_CONTENT
+  COOKIES_CONTENT=$(cat)
+
+  # Now create directory and files
+  mkdir -p "$BOT_DIR"
+
+  cat > "$BOT_DIR/config.json" <<EOL
 {
-    "config_version": 0,
+    "config_version": 1,
     "general": {
         "language": "en",
         "send_channel_messages": false,
@@ -173,11 +181,98 @@ cat > "$BOT_DIR/config.json" <<EOL
 }
 EOL
 
-  echo "Paste your cookies below (Press CTRL+D to save):"
-  cat > "$BOT_DIR/cookies.txt"
+  echo "$COOKIES_CONTENT" > "$BOT_DIR/cookies.txt"
 
   echo "Bot folder created at: $BOT_DIR"
   echo "Run it with: $0 run ${BOT_NAME}"
+}
+
+update_cookies() {
+  local NAME="$1"
+  if [[ -z "$NAME" ]]; then echo "Usage: $0 cks <folder_name>"; exit 1; fi
+  local BOT_DIR="./${NAME}"
+  if [[ ! -d "$BOT_DIR" ]]; then echo "Folder '$BOT_DIR' not found."; exit 1; fi
+
+  echo "Updating cookies for '$NAME'."
+  echo "Paste your NEW cookies below (Press CTRL+D to save):"
+  local COOKIES_CONTENT
+  COOKIES_CONTENT=$(cat)
+  
+  if [[ -z "$COOKIES_CONTENT" ]]; then
+      echo "No cookies provided. Aborting."
+      return
+  fi
+
+  echo "$COOKIES_CONTENT" > "$BOT_DIR/cookies.txt"
+  echo "Cookies updated in $BOT_DIR/cookies.txt"
+}
+
+update_all_cookies() {
+  echo "Updating cookies for ALL containers using image $IMAGE_NAME."
+  echo "This will replace cookies.txt in all bot folders."
+  echo "Paste your NEW cookies below (Press CTRL+D to save):"
+  local COOKIES_CONTENT
+  COOKIES_CONTENT=$(cat)
+
+  if [[ -z "$COOKIES_CONTENT" ]]; then
+      echo "No cookies provided. Aborting."
+      return
+  fi
+  
+  # Find all containers from this image
+  local CONTAINERS
+  CONTAINERS=$(docker ps -a --filter "ancestor=$IMAGE_NAME" --format "{{.Names}}")
+
+  if [[ -z "$CONTAINERS" ]]; then
+      echo "No containers found."
+      return
+  fi
+
+  local COUNT=0
+  for NAME in $CONTAINERS; do
+      local BOT_DIR="./${NAME}"
+      if [[ -d "$BOT_DIR" ]]; then
+          echo "$COOKIES_CONTENT" > "$BOT_DIR/cookies.txt"
+          echo "Updated cookies for $NAME"
+          ((COUNT++))
+      else
+          echo "Warning: Container $NAME found but folder $BOT_DIR does not exist locally. Skipping."
+      fi
+  done
+  echo "Updated cookies for $COUNT bots."
+}
+
+update_containers() {
+  echo "Starting update process for all $IMAGE_NAME containers..."
+  
+  local CONTAINERS
+  CONTAINERS=$(docker ps -a --filter "ancestor=$IMAGE_NAME" --format "{{.Names}}")
+
+  if [[ -z "$CONTAINERS" ]]; then
+      echo "No containers found."
+      return
+  fi
+
+  for NAME in $CONTAINERS; do
+      echo "---------------------------------------------------"
+      echo "Updating container: $NAME"
+      
+      # Check if container is running
+      if ! docker ps --filter "name=$NAME" --filter "status=running" --format "{{.Names}}" | grep -q "^$NAME$"; then
+          echo "Container $NAME is not running. Starting it temporarily..."
+          docker start "$NAME"
+      fi
+      
+      echo "Running pip install..."
+      docker exec -it "$NAME" pip install --no-cache-dir --user --upgrade -r requirements.txt
+      
+      echo "Restarting container $NAME..."
+      docker restart "$NAME"
+      
+      echo "Update complete for $NAME."
+  done
+  echo "---------------------------------------------------"
+  echo "All containers updated."
 }
 
 run_bot_from_dir() {
@@ -305,6 +400,16 @@ case "${CMD}" in
   ps)
     list_bot_containers
     ;;
+  cks)
+    shift || true
+    update_cookies "${1:-}"
+    ;;
+  cks-all)
+    update_all_cookies
+    ;;
+  update)
+    update_containers
+    ;;
   limit)
     shift || true
     limit_bot "${1:-}"
@@ -318,9 +423,11 @@ Usage:
   $0 logs <name>      Tail logs from container
   $0 ls               List bot folders adjacent to this script
   $0 pull             Pull or verify Docker image ($IMAGE_NAME)
-  $0 pull             Pull or verify Docker image ($IMAGE_NAME)
   $0 ps               List containers using image $IMAGE_NAME
   $0 limit <folder>   Set resource limits (CPU/Memory) for a bot folder
+  $0 cks <folder>     Update cookies.txt for a specific bot folder
+  $0 cks-all          Update cookies.txt for ALL bot folders (bulk update)
+  $0 update           Update pip requirements and restart all bot containers
 
 Env:
   TTMB_TAG            Override image tag (default: $IMAGE_TAG)
